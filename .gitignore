@@ -1,0 +1,20 @@
+# Python environment
+venv/
+__pycache__/
+*.pyc
+
+# Environment variables (SECURITY)
+.env
+
+# Local database/temp files
+temp/
+*.db
+*.log
+
+# IDE settings
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

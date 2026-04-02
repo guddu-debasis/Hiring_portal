@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+sqlalchemy
+pymysql
+cryptography
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+groq
+streamlit
+requests
+pydantic
+pydantic-settings
+python-dotenv
+pdfminer.six
