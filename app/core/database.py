@@ -3,8 +3,22 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
-# Create the SQLAlchemy engine using the URL from config.py
-engine = create_engine(settings.DATABASE_URL)
+# --- SSL CONFIGURATION FOR CLOUD ---
+# TiDB Cloud and other managed MySQL services require SSL.
+# This path is the standard CA cert location on Render (Linux).
+connect_args = {}
+if "tidbcloud" in settings.DATABASE_URL or "aivencloud" in settings.DATABASE_URL:
+    connect_args = {
+        "ssl": {
+            "ca": "/etc/ssl/certs/ca-certificates.crt"
+        }
+    }
+
+# Create the SQLAlchemy engine with SSL arguments
+engine = create_engine(
+    settings.DATABASE_URL, 
+    connect_args=connect_args
+)
 
 # Create a session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

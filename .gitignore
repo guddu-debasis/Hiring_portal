@@ -18,3 +18,11 @@ temp/
 # OS files
 .DS_Store
 Thumbs.db
+
+.streamlit/
+
+venv/
+.env
+uploads/
+__pycache__/
+.streamlit/secrets.toml
