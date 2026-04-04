@@ -86,8 +86,9 @@ st.markdown(f"""
 if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1, 1.4, 1])
     with col2:
-        st.markdown("<br><br><h1 style='text-align: center;'>🧠 MindSpark-Ai</h1>", unsafe_allow_html=True)
+        st.markdown("<br><br><h1 style='text-align: center;'>🧠 NeuralNexus</h1>", unsafe_allow_html=True)
         t1, t2 = st.tabs(["🔐 Login", "🚀 Register"])
+        
         with t1:
             with st.form("login"):
                 u = st.text_input("Username")
@@ -96,9 +97,26 @@ if not st.session_state.logged_in:
                     res = requests.post(f"{BASE_URL}/login", params={"username": u, "password": p})
                     if res.status_code == 200:
                         d = res.json()
-                        st.session_state.update({"logged_in": True, "username": d['username'], "role": d['role'], "token": d['access_token']})
+                        st.session_state.update({
+                            "logged_in": True, 
+                            "username": d['username'], 
+                            "role": d['role'], 
+                            "token": d['access_token']
+                        })
                         st.rerun()
                     else: st.error("Access Denied")
+        
+        with t2:
+            with st.form("register"):
+                nu = st.text_input("Choose Username")
+                np = st.text_input("Set Password", type="password")
+                nr = st.selectbox("I am a...", ["candidate", "recruiter"])
+                if st.form_submit_button("Create Account", use_container_width=True):
+                    res = requests.post(f"{BASE_URL}/signup", params={"username": nu, "password": np, "role": nr})
+                    if res.status_code == 200:
+                        st.success("Account Created! You can now log in.")
+                    else:
+                        st.error("Username already exists or invalid data.")
     st.stop()
 
 # --- 4. DASHBOARD ---
@@ -116,7 +134,7 @@ else:
             st.session_state.update({"logged_in": False, "username": None, "role": None, "token": None})
             st.rerun()
 
-    # --- RECRUITER DASHBOARD (PDF FIX) ---
+    # --- RECRUITER DASHBOARD ---
     if choice == "Recruiter Dashboard":
         st.title("📊 Intelligence Center")
         jobs = requests.get(f"{BASE_URL}/jobs/").json()
@@ -137,7 +155,6 @@ else:
                     with col_res:
                         st.markdown("##### 📄 Candidate Resume")
                         res_url = c.get('file_path')
-                        # PDF VIEW FIX: Wrap in a stylized div and use the GView URL
                         pdf_display = f'https://docs.google.com/gview?url={res_url}&embedded=true'
                         st.markdown(f"""
                             <div class="pdf-container">
@@ -161,7 +178,7 @@ else:
                                 st.rerun()
                             st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- CANDIDATE PORTAL (TRACKER FIX) ---
+    # --- CANDIDATE PORTAL ---
     elif choice == "Candidate Portal":
         st.title("🚀 Career Launchpad")
         t1, t2 = st.tabs(["🎯 Available Roles", "📈 My Applications"])
@@ -176,9 +193,10 @@ else:
                     email = st.text_input("Your Email")
                     pdf = st.file_uploader("Resume (PDF)", type=["pdf"])
                     if st.form_submit_button("🚀 Submit"):
-                        files = {"file": (pdf.name, pdf.getvalue(), "application/pdf")}
-                        requests.post(f"{BASE_URL}/apply/", data={"job_id": job['id'], "full_name": st.session_state.username, "email": email}, files=files)
-                        st.success("Deployed!")
+                        if email and pdf:
+                            files = {"file": (pdf.name, pdf.getvalue(), "application/pdf")}
+                            requests.post(f"{BASE_URL}/apply/", data={"job_id": job['id'], "full_name": st.session_state.username, "email": email}, files=files)
+                            st.success("Deployed!")
         with t2:
             email_track = st.text_input("Registered Email")
             if st.button("Track Status", use_container_width=True):
