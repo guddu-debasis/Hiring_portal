@@ -4,7 +4,7 @@ import os
 
 # --- 1. SETTINGS & THEME INITIALIZATION ---
 st.set_page_config(
-    page_title="MindSpark-Ai | Intelligence Engine",
+    page_title="NeuralNexus | Intelligence Engine",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
