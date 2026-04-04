@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from sqlalchemy.orm import Session
-from typing import List
 import os
 import uuid
-import shutil
+import time
+import cloudinary
+import cloudinary.uploader
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from sqlalchemy.orm import Session
 
+# Internal Imports
 from app.core.database import get_db
 from app.models.candidate import JobPost, Candidate, User
 from app.schemas.candidate import JobCreate, JobResponse, CandidateResponse
@@ -12,6 +15,15 @@ from app.services.ai_service import extract_text, calculate_match_score
 from app.core.security import hash_password, verify_password, create_access_token
 
 router = APIRouter()
+
+# --- CLOUDINARY CONFIGURATION ---
+# Ensure these are set in your Render Environment Variables
+cloudinary.config( 
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME"), 
+    api_key = os.getenv("CLOUDINARY_API_KEY"), 
+    api_secret = os.getenv("CLOUDINARY_API_SECRET"),
+    secure = True
+)
 
 # ---------------------------------------------------------
 # AUTHENTICATION
@@ -63,14 +75,14 @@ def delete_job(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    # Cascade delete: Remove all candidates who applied for this job
+    # Cascade delete associated candidates
     db.query(Candidate).filter(Candidate.job_id == job_id).delete()
     db.delete(job)
     db.commit()
-    return {"message": "Job and all associated applications deleted"}
+    return {"message": "Job and applications deleted"}
 
 # ---------------------------------------------------------
-# CANDIDATE & AI SCORING
+# CANDIDATE & AI SCORING (CLOUDINARY INTEGRATED)
 # ---------------------------------------------------------
 
 @router.post("/apply/")
@@ -81,49 +93,46 @@ async def apply_job(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    # 1. PREVENT DUPLICATES: Check if this email already applied for THIS job
-    existing_application = db.query(Candidate).filter(
-        Candidate.job_id == job_id, 
-        Candidate.email == email
-    ).first()
-    
-    if existing_application:
-        raise HTTPException(
-            status_code=400, 
-            detail="You have already applied for this position."
+    # 1. Prevent Duplicates
+    existing = db.query(Candidate).filter(Candidate.job_id == job_id, Candidate.email == email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Application already submitted for this job.")
+
+    # 2. Cloudinary Upload
+    try:
+        file_content = await file.read()
+        
+        # Upload as 'raw' to preserve PDF structure
+        upload_result = cloudinary.uploader.upload(
+            file_content,
+            resource_type="raw",
+            folder="mindspark_resumes",
+            public_id=f"resume_{uuid.uuid4()}"
         )
+        permanent_url = upload_result.get("secure_url")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cloud Storage Error: {str(e)}")
 
-    # 2. FILE HANDLING: Ensure directory exists and save PDF
-    os.makedirs("uploads", exist_ok=True)
-    filename = f"{uuid.uuid4()}_{file.filename}"
-    upload_path = os.path.join("uploads", filename)
-    
-    with open(upload_path, "wb") as buffer:
-        buffer.write(await file.read())
-
-    # 3. AI ANALYSIS
+    # 3. AI Analysis
     job = db.query(JobPost).filter(JobPost.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Extract text and calculate score using your services
-    extracted_text = extract_text(upload_path) 
+    # Pass bytes to your AI service
+    extracted_text = extract_text(file_content) 
     score = calculate_match_score(extracted_text, job.requirements)
 
-    # Generate insights for the UI
-    ai_summary = f"Candidate shows a {score}% match for the {job.title} role based on extracted skills."
-    # Optional: If your ai_service can extract a list of skills, replace this placeholder
-    ai_skills = "Extracted from Resume Analysis" 
+    ai_summary = f"Candidate shows a {score}% match for the {job.title} role."
 
-    # 4. SAVE TO DATABASE
+    # 4. Save to TiDB
     new_candidate = Candidate(
         job_id=job_id,
         full_name=full_name,
         email=email,
-        file_path=filename,           # Key for PDF preview
-        resume_text=extracted_text,   # Key for raw text box
-        resume_summary=ai_summary,    # Key for AI Insights
-        skills=ai_skills,             # Key for Skills section
+        file_path=permanent_url,  # Storing the full Cloudinary URL
+        resume_text=extracted_text,
+        resume_summary=ai_summary,
+        skills="Extracted via AI Analysis",
         score=float(score),
         status="Pending"
     )
@@ -132,39 +141,34 @@ async def apply_job(
     db.commit()
     db.refresh(new_candidate)
     
-    return {"message": "Application submitted successfully", "score": new_candidate.score}
+    return {"message": "Application successful", "score": new_candidate.score}
+
+# ---------------------------------------------------------
+# RECRUITER & CANDIDATE VIEWS
+# ---------------------------------------------------------
 
 @router.get("/jobs/{job_id}/shortlist", response_model=List[CandidateResponse])
 def get_shortlist(job_id: int, db: Session = Depends(get_db)):
-    # Returns candidates for a specific job, highest scores first
-    return db.query(Candidate).filter(
-        Candidate.job_id == job_id
-    ).order_by(Candidate.score.desc()).all()
+    return db.query(Candidate).filter(Candidate.job_id == job_id).order_by(Candidate.score.desc()).all()
 
 @router.put("/candidates/{candidate_id}/status")
-def update_candidate_status(candidate_id: int, status: str, db: Session = Depends(get_db)):
+def update_status(candidate_id: int, status: str, db: Session = Depends(get_db)):
     candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
-    
     candidate.status = status
     db.commit()
-    return {"message": f"Candidate status updated to {status}"}
+    return {"message": f"Status updated to {status}"}
 
 @router.get("/my-applications/{email}", response_model=List[CandidateResponse])
-def get_my_applications(email: str, db: Session = Depends(get_db)):
-    """
-    Returns application status including the Job Title using a SQL Join.
-    """
+def get_my_apps(email: str, db: Session = Depends(get_db)):
     results = db.query(Candidate, JobPost.title).join(
         JobPost, Candidate.job_id == JobPost.id
     ).filter(Candidate.email == email).all()
     
     response_data = []
     for candidate, title in results:
-        # Map SQLAlchemy object to Pydantic schema and inject job_title
         c_dict = CandidateResponse.from_orm(candidate)
         c_dict.job_title = title
         response_data.append(c_dict)
-        
     return response_data
