@@ -11,15 +11,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Modern UI Enhancements (Deep Night & Emerald Theme)
+# Modern Glassmorphism CSS
 st.markdown("""
     <style>
-    /* Global Styles */
-    .stApp {
-        background: radial-gradient(circle at top right, #1a1c24, #0e1117);
-    }
+    .stApp { background: radial-gradient(circle at top right, #1a1c24, #0e1117); }
     
-    /* Custom Card Styling */
     .glass-card {
         background: rgba(255, 255, 255, 0.03);
         border-radius: 15px;
@@ -29,10 +25,9 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* Animated Button */
+    /* Primary Buttons */
     div.stButton > button {
         border-radius: 12px;
-        padding: 10px 24px;
         background: linear-gradient(45deg, #4CAF50, #45a049);
         color: white;
         border: none;
@@ -45,7 +40,11 @@ st.markdown("""
         box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
     }
 
-    /* Sidebar Role Badge */
+    /* Delete Button Styling */
+    button[kind="primary"] {
+        background: linear-gradient(45deg, #ff4b4b, #d32f2f) !important;
+    }
+
     .role-badge {
         background: #1f222d;
         padding: 5px 12px;
@@ -53,19 +52,6 @@ st.markdown("""
         border: 1px solid #4CAF50;
         font-size: 0.8rem;
         color: #4CAF50;
-    }
-
-    /* Match Score Circle */
-    .score-container {
-        text-align: center;
-        padding: 20px;
-        border-radius: 50%;
-        border: 4px solid #4CAF50;
-        width: 100px;
-        height: 100px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -81,22 +67,20 @@ def init_session():
         })
 
 init_session()
-# Ensure BASE_URL points to your Render API
+# Ensure this matches your Render Backend URL
 BASE_URL = st.secrets.get("BASE_URL", "https://hiring-portal-xl3g.onrender.com/api/v1")
 
-# --- 3. AUTHENTICATION UI (The "Stunning" Login) ---
+# --- 3. AUTHENTICATION UI ---
 if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center;'>🧠 MindSpark-Ai</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #888;'>The future of talent acquisition is here.</p>", unsafe_allow_html=True)
-        
+        st.markdown("<h1 style='text-align: center; margin-top: 50px;'>🧠 MindSpark-Ai</h1>", unsafe_allow_html=True)
         tab_login, tab_signup = st.tabs(["🔐 Secure Entry", "🚀 Join the Network"])
 
         with tab_login:
             with st.form("login_form"):
-                u = st.text_input("Username", placeholder="Enter your ID")
-                p = st.text_input("Password", type="password", placeholder="••••••••")
+                u = st.text_input("Username")
+                p = st.text_input("Password", type="password")
                 if st.form_submit_button("Launch Dashboard"):
                     try:
                         res = requests.post(f"{BASE_URL}/login", params={"username": u, "password": p})
@@ -110,25 +94,21 @@ if not st.session_state.logged_in:
                             })
                             st.rerun()
                         else:
-                            st.error("Access Denied: Invalid Credentials")
+                            st.error("Invalid Credentials.")
                     except Exception as e:
-                        st.error(f"Server Unreachable. Please check BASE_URL.")
+                        st.error(f"Backend Offline: {e}")
 
         with tab_signup:
             with st.form("signup_form"):
-                nu = st.text_input("Choose Username")
-                np = st.text_input("Create Password", type="password")
-                nr = st.selectbox("I am a...", ["candidate", "recruiter"])
-                if st.form_submit_button("Create My Account"):
-                    try:
-                        res = requests.post(f"{BASE_URL}/signup", params={"username": nu, "password": np, "role": nr})
-                        if res.status_code == 200:
-                            st.success("Account Ready! Head over to Login.")
-                    except Exception as e:
-                        st.error(f"Registration Error: {e}")
+                nu = st.text_input("New Username")
+                np = st.text_input("New Password", type="password")
+                nr = st.selectbox("Role", ["candidate", "recruiter"])
+                if st.form_submit_button("Create Account"):
+                    requests.post(f"{BASE_URL}/signup", params={"username": nu, "password": np, "role": nr})
+                    st.success("Account created! Please Login.")
     st.stop()
 
-# --- 4. PROTECTED CONTENT (The Dashboard) ---
+# --- 4. PROTECTED CONTENT ---
 else:
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.username}")
@@ -144,102 +124,88 @@ else:
 
     # --- RECRUITER: POST A JOB ---
     if choice == "Post a Job":
-        st.title("🚀 Open a New Frontier")
-        with st.container():
-            st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-            with st.form("job_form"):
-                t = st.text_input("Job Title", placeholder="e.g. Lead Python Developer")
-                d = st.text_area("What's the mission? (Description)")
-                r = st.text_area("Tech Stack / Requirements", placeholder="Python, FastAPI, TiDB, React")
-                if st.form_submit_button("Publish to Network"):
-                    if t and d and r:
-                        headers = {"Authorization": f"Bearer {st.session_state.token}"}
-                        requests.post(f"{BASE_URL}/jobs/", json={"title": t, "description": d, "requirements": r}, headers=headers)
-                        st.success("Job Published Successfully!")
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.title("📝 Post a New Opportunity")
+        with st.form("job_form"):
+            t = st.text_input("Job Title")
+            d = st.text_area("Detailed Description")
+            r = st.text_area("Requirements (Skills)")
+            if st.form_submit_button("🚀 Publish Vacancy"):
+                headers = {"Authorization": f"Bearer {st.session_state.token}"}
+                requests.post(f"{BASE_URL}/jobs/", json={"title": t, "description": d, "requirements": r}, headers=headers)
+                st.success("Job Published!")
 
-    # --- RECRUITER: DASHBOARD (Optimized for Cloudinary) ---
+    # --- RECRUITER: DASHBOARD (Includes Direct Delete) ---
     elif choice == "Recruiter Dashboard":
         st.title("📊 Talent Intelligence Center")
         try:
             jobs = requests.get(f"{BASE_URL}/jobs/").json()
             if jobs:
                 job_list = {j['title']: j['id'] for j in jobs}
-                sel_job = st.selectbox("Select Active Vacancy", list(job_list.keys()))
-                j_id = job_list[sel_job]
+                
+                # Selection and Deletion row
+                col_sel, col_del = st.columns([3, 1])
+                with col_sel:
+                    sel_job = st.selectbox("Select Active Vacancy", list(job_list.keys()))
+                with col_del:
+                    st.write("") # Padding
+                    st.write("") # Padding
+                    if st.button("🗑️ Delete Job", type="primary"):
+                        requests.delete(f"{BASE_URL}/jobs/{job_list[sel_job]}")
+                        st.rerun()
 
                 st.divider()
-                cands = requests.get(f"{BASE_URL}/jobs/{j_id}/shortlist").json()
+                cands = requests.get(f"{BASE_URL}/jobs/{job_list[sel_job]}/shortlist").json()
                 
                 if not cands:
-                    st.info("No operatives have applied for this mission yet.")
+                    st.info("No candidates yet.")
                 else:
                     for c in cands:
-                        score = c.get('score', 0)
-                        status = c.get('status', 'Pending')
-                        
-                        # Glassmorphism Expander
-                        with st.expander(f"⚡ {c.get('full_name')} — Match: {score}%"):
+                        with st.expander(f"👤 {c['full_name']} — Match: {c['score']}%"):
                             col_res, col_ai = st.columns([1.5, 1])
-                            
                             with col_res:
                                 st.markdown("##### 📄 Digital Portfolio")
-                                resume_url = c.get('file_path') # This is now our Cloudinary URL!
-                                if resume_url:
-                                    # STUNNING PDF EMBED
-                                    st.markdown(f'<iframe src="{resume_url}" width="100%" height="700px" style="border-radius:12px; border:none;"></iframe>', unsafe_allow_html=True)
+                                res_url = c.get('file_path')
+                                if res_url and res_url.startswith("http"):
+                                    st.markdown(f'<iframe src="{res_url}" width="100%" height="700px" style="border-radius:12px; border:none; background-color:white;"></iframe>', unsafe_allow_html=True)
                                 else:
-                                    st.warning("Resume file missing in Cloudinary.")
+                                    st.warning("Invalid link. Delete this job and apply again to use Cloudinary.")
 
                             with col_ai:
-                                st.markdown("##### 🤖 AI Engine Analysis")
-                                st.markdown(f"<div class='glass-card' style='border-left: 4px solid #4CAF50;'><b>Summary:</b><br>{c.get('resume_summary')}</div>", unsafe_allow_html=True)
-                                st.info(f"**Identified Skills:** {c.get('skills')}")
-                                
-                                st.divider()
-                                if st.button(f"✅ Select {c.get('full_name')}", key=f"h_{c['id']}"):
+                                st.markdown("##### 🤖 AI Analysis")
+                                st.markdown(f"<div class='glass-card' style='border-left:4px solid #4CAF50;'>{c.get('resume_summary')}</div>", unsafe_allow_html=True)
+                                st.info(f"**Skills:** {c.get('skills')}")
+                                if st.button(f"✅ Hire {c['full_name']}", key=f"h_{c['id']}"):
                                     requests.put(f"{BASE_URL}/candidates/{c['id']}/status", params={"status": "Selected"})
                                     st.rerun()
-                                if st.button(f"❌ Pass", key=f"r_{c['id']}"):
-                                    requests.put(f"{BASE_URL}/candidates/{c['id']}/status", params={"status": "Rejected"})
-                                    st.rerun()
             else:
-                st.warning("No jobs currently active.")
+                st.warning("No active jobs.")
         except Exception as e:
-            st.error(f"Interface Error: {e}")
+            st.error(f"Dashboard Error: {e}")
 
     # --- CANDIDATE: PORTAL ---
     elif choice == "Candidate Portal":
-        st.title("🚀 Career Command Center")
-        tab1, tab2 = st.tabs(["🎯 Opportunities", "📈 Status Tracker"])
-
-        with tab1:
+        st.title("🚀 Career Launchpad")
+        t1, t2 = st.tabs(["🎯 Apply", "📈 Status"])
+        with t1:
             all_jobs = requests.get(f"{BASE_URL}/jobs/").json()
             if all_jobs:
-                job_lookup = {j['title']: j for j in all_jobs}
-                title = st.selectbox("Choose your next challenge", list(job_lookup.keys()))
-                job = job_lookup[title]
-                
+                j_lookup = {j['title']: j for j in all_jobs}
+                title = st.selectbox("Select Role", list(j_lookup.keys()))
+                job = j_lookup[title]
                 st.markdown(f"<div class='glass-card'><h3>{job['title']}</h3><p>{job['description']}</p></div>", unsafe_allow_html=True)
-                
                 with st.form("apply"):
-                    email = st.text_input("Your Professional Email")
-                    pdf = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
-                    if st.form_submit_button("Submit to AI Engine"):
+                    email = st.text_input("Contact Email")
+                    pdf = st.file_uploader("Resume (PDF)", type=["pdf"])
+                    if st.form_submit_button("🚀 Submit"):
                         if email and pdf:
-                            with st.spinner("AI is evaluating your fit..."):
-                                files = {"file": (pdf.name, pdf.getvalue(), "application/pdf")}
-                                data = {"job_id": job['id'], "full_name": st.session_state.username, "email": email}
-                                res = requests.post(f"{BASE_URL}/apply/", data=data, files=files)
-                                if res.status_code == 200:
-                                    st.success(f"Deployed! Match Score: {res.json().get('score')}%")
-                                    st.balloons()
-            else:
-                st.info("The intelligence network is searching for new roles...")
-
-        with tab2:
-            email_track = st.text_input("Check status via email")
+                            files = {"file": (pdf.name, pdf.getvalue(), "application/pdf")}
+                            res = requests.post(f"{BASE_URL}/apply/", data={"job_id": job['id'], "full_name": st.session_state.username, "email": email}, files=files)
+                            if res.status_code == 200:
+                                st.success(f"Applied! Score: {res.json().get('score')}%")
+                                st.balloons()
+        with t2:
+            track_email = st.text_input("Email to track")
             if st.button("Track Progress"):
-                apps = requests.get(f"{BASE_URL}/my-applications/{email_track}").json()
+                apps = requests.get(f"{BASE_URL}/my-applications/{track_email}").json()
                 for a in apps:
                     st.markdown(f"<div class='glass-card'><b>{a['job_title']}</b> — Status: {a['status']}</div>", unsafe_allow_html=True)
