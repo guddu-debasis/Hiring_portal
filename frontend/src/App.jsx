@@ -56,7 +56,7 @@ const AuthPage = ({ setToken, setRole, setUsername }) => {
   return (
     <div className="auth-container fade-in">
       <div className="glass-panel auth-box">
-        <h2 className="page-title gradient-text">{isLogin ? 'Welcome Back' : 'Join Mindspark'}</h2>
+        <h2 className="page-title gradient-text">{isLogin ? 'Welcome Back' : 'Join NeuralNexus'}</h2>
         {error && <p className="text-danger mb-4 text-center">{error}</p>}
         <form onSubmit={handleSubmit} className="grid">
           <div className="input-group">
@@ -534,7 +534,7 @@ export default function App() {
             <div style={{ background: 'var(--primary)', padding: '0.5rem', borderRadius: '8px' }}>
               <Briefcase color="white" size={24} />
             </div>
-            <h1 style={{ fontSize: '1.5rem', margin: 0 }} className="gradient-text">Mindspark Hiring</h1>
+            <h1 style={{ fontSize: '1.5rem', margin: 0 }} className="gradient-text">NeuralNexus</h1>
           </div>
           
           {session.token && (
